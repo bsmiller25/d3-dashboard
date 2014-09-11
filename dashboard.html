@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+                <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>D3: Dashboard</title>
+		<script src="http://d3js.org/d3.v3.min.js"></script>
+		<style type="text/css">
+	
+                       /* CSS stuff here */
+
+                    	.axis path,
+			.axis line {
+				fill: none;
+				stroke: black;
+				shape-rendering: crispEdges;
+			}
+			
+			.axis text {
+				font-family: sans-serif;
+				font-size: 11px;
+			}
+
+                        svg .x path,
+                        svg .x line
+                        {
+                                stroke: black;
+                        }
+
+			svg .legend text {
+                                font-family: sans-serif;
+				font-size: 12px;
+			} 
+
+
+                        .slider {width: 750px; margin: 0; padding: 0; background: #fff;}
+                  
+
+                        path { 
+                              /*stroke: black;*/
+                              stroke-width: 2;
+                              fill: none;
+                              }
+
+		</style>
+
+	</head>
+	<body>
+		
+
+
+           <script type="text/javascript">
+
+	     //Width and height
+		var w = 1800;
+		var h = 800;
+                var padding = 150;
+
+                var dataset;
+                var colnamesfull;    
+                var floor = 20;
+
+	     d3.csv("dashboard_data.csv", function(data){
+
+                datasetfull = data;
+                dataset = data;
+
+                   var asof = dataset.length-1;
+
+                   var active_floor = 0;
+                   readDate = d3.time.format("%Y-%m-%d").parse
+                   readDate2 = d3.time.format("%m/%d/%y").parse
+                   cleanDate = d3.time.format("%m/%d/%y")   
+
+          // set up the page
+
+                  var titlespace = d3.select("body")
+                      .append("div")
+                      .attr("id", "titlespace")
+                      .attr("align","center")
+                      .attr("height", h);
+
+                   var control = d3.select("body")
+                      .append("div")
+                      .attr("id", "control")
+                      .attr("align","center")
+                      .attr("height",h);
+
+                   var dashdiv = d3.select("body")
+                        .append("div")
+                        .attr("id","dashdiv")
+                        .attr("align","center");
+
+                   var dashsvg = d3.select("#dashdiv").append("svg")
+                        .attr("id","dashsvg") 
+                        .attr("height",h)
+                        .attr("width",w)
+                        .style("background","white");
+
+
+
+                // Get Column Names From the CSV (excluding first column of dates)
+                   
+	           colnamesfull = [];
+                   for(var i = 1; i < d3.entries(dataset[0]).length ; i++){
+                       colnamesfull.push(d3.entries(dataset[0])[i].key)
+                   };
+                   for(var i = 0; i < colnamesfull.length; i++){
+                       dataset.forEach(function(d){
+                          d[colnamesfull[i]] = +d[colnamesfull[i]]
+                       })
+                   }; 
+
+                   function rebuild(){
+
+                       charttitle()
+                       controlpanel()
+                       dashboard()
+
+                  }
+
+                   rebuild()
+
+                  function charttitle(){
+
+                    d3.select("#title")
+                        .remove()
+
+                    var title = d3.select("#titlespace").append("h1")
+                        .attr("id","title")
+                        .text("Dashboard As Of:  " + cleanDate(readDate(dataset[asof].date)));
+
+                } // end chart title
+
+
+                // set up the control div
+
+                 function controlpanel(){
+
+                   d3.select("#dateslider")
+                      .remove()
+
+                      var control = d3.select("#control")
+
+                      var dateslider = control.append("g")
+                         .attr("id","datesliderg");
+
+                         var date = dateslider.append("div")
+                            .attr("id","dateslider")
+
+
+                         date.append("text")
+                            .text("Date: ")
+
+
+                         date.append("button")
+                            .attr("id","dayearlier")
+                            .text(" <=")
+                            .on("click",function(){
+                                if(asof > 0){
+                                   asof = +asof - 1
+                                   rebuild()
+                                }
+                                else{alert("No more data")}
+                                });
+
+                            date.append("input")
+                               .attr("name", "dateslider")
+                               .attr("class","slider")
+                               .attr("type","range")
+                               .attr("min",0)
+                               .attr("max",dataset.length-1)
+                               .attr("value", asof)
+                               .on("input", function(){
+                                     asof = this.value ;
+                                     charttitle()
+                                })
+                               .on("change", function() {
+                                   asof = this.value; 
+                                   rebuild()
+                                });
+
+                         d3.select("#dateslider")
+                            .append("output") 
+                               .attr("for","dateslider")
+                               .attr("onforminput","value = dateslider.valueAsNumber;");
+
+                          date.append("button")
+                            .attr("id","daylater")
+                            .text(" =>")
+                            .on("click",function(){
+                                if(asof < dataset.length-1){
+                                   asof = +asof + 1
+                                   rebuild()
+                                   }  
+                                else{alert("No more data")}
+                                });
+
+ 
+	           } // end control panel
+
+                  // Dash stuff
+
+                  function dashboard(){
+
+                     d3.select("#dummy")
+                       .remove()
+                     d3.select("#boat")
+                       .remove()
+		     d3.select("#house")
+                       .remove()
+
+                   
+                     // dash parameters
+
+                        // color part
+                        var outer = 125;
+                        var inner = 100;
+
+                     var arc_good2bad = [
+                        {start: -1.5, end: -.9, color: "#00CC00"},//green
+                        {start: -.9, end: -.3, color: "#4DDB4D"},//lightgreen/
+                        {start: -.3, end: .3, color: "#FFFF4D"},//yellow
+                        {start: .3, end: .9, color: "#FF4D4D"},//lightred
+                        {start: .9, end: 1.5, color: "#FF0000"}//red
+                        ];
+
+
+                     var arc_bad2good = [
+                        {start: -1.5, end: -.9, color: "#FF0000"},//red
+                        {start: -.9, end: -.3, color: "#FF4D4D"},//lightred
+                        {start: -.3, end: .3, color: "#FFFF4D"},//yellow
+                        {start: .3, end: .9, color: "#4DDB4D"},//lightgreen/
+                        {start: .9, end: 1.5, color: "#00CC00"}//green
+                        ];
+
+                     var arc_bad2good2bad = [
+                        {start: -1.5, end: -1.125, color: "#FF0000"},//red
+                        {start: -1.125, end: -.75, color: "#FFFF4D"},//yellow
+                        {start: -.75, end: .75, color: "#00CC00"},//green
+                        {start: .75, end: 1.125, color: "#FFFF4D"},//yellow
+                        {start: 1.125, end: 1.5, color: "#FF0000"}//red
+                        ];
+
+                     var dasharc = d3.svg.arc()
+                        .innerRadius(inner)
+                        .outerRadius(outer)
+                        .startAngle(function(d){return d.start;})
+                        .endAngle(function(d){return d.end;});
+
+
+                      var daydata = dataset[asof];
+
+              // Dummy Alerts
+
+                    var dummy = d3.select("#dashsvg").append("g")
+                        .attr("id","dummy")
+                        .attr("transform","translate(815,75)");
+
+                      var dummy1 = dummy.append("text")
+                         .text("Dummy 1")
+                         .style("font-size","25pt")
+                         .attr("fill", "lightgrey")
+                         .attr("x",-300);   
+
+                      var dummy2 = dummy.append("text")
+                         .text("Dummy 2")
+                         .style("font-size","25pt")
+                         .attr("fill", "lightgrey");                 
+
+                      var dummy3 = dummy.append("text")
+                         .text("Dummy3")
+                         .style("font-size","25pt")
+                         .attr("fill", "lightgrey")
+                         .attr("x",300);
+           
+                      if(daydata.Dummy1 == 1){
+                          dummy1.attr("fill","red")
+                      };
+                      if(daydata.Dummy2 == 1){
+                          dummy2.attr("fill","red")
+                      };
+                      if(daydata.Dummy3 == 1){
+                          dummy3.attr("fill","red")
+                      };
+                    
+
+                   // Boat
+
+                     var boat = d3.select("#dashsvg").append("g")
+                        .attr("id","boat")
+                        .attr("transform","translate(600,300)");
+
+                     d3.select("#boat")
+                        .append("text")
+                           .attr("y","-150")
+                           .text("Boat")
+                           .style("text-anchor","middle")
+                           .style("font-size", "20pt");
+
+         
+                     d3.select("#boat")
+                        .selectAll("path")
+                           .data(arc_bad2good2bad)
+                           .enter()
+                              .append("path")
+                                 .attr("d", dasharc)
+                                 .style("fill",function(d){return d.color;});     
+
+                         angleScale = d3.scale.linear()
+                            .domain([daydata.boatm - 3 * daydata.boatsd, daydata.boatm + 3 * daydata.boatsd])
+                            .range([-1.125,1.125]);
+                     
+                         var boatarc = d3.svg.arc()
+                            .innerRadius(50)
+                            .outerRadius((outer-inner)/2 + inner)
+                            .startAngle(function(d){
+                                if(angleScale(d.boat) > 1.5){
+                                   return 1.5; 
+                                  }
+                                if(angleScale(d.boat) < -1.5){
+                                    return -1.5;
+                                  }
+                                else{
+                                   return angleScale(d.boat);
+                                }
+                               })
+                            .endAngle(function(d){
+                                if(angleScale(d.boat) > 1.5){
+                                   return 1.5; 
+                                  }
+                                if(angleScale(d.boat) < -1.5){
+                                    return -1.5;
+                                  }
+                                else{
+                                   return angleScale(d.boat);
+                                }
+                               });
+
+                         d3.select("#boat")
+                             .selectAll("arrow")
+                                .data([daydata])
+                                   .enter()
+                                      .append("path")
+                                         .attr("d",boatarc)
+                                         .style("stroke-width",4)
+                                         .style("stroke","black");
+
+                        d3.select("#boat")
+                            .append("text")
+                                 .text(d3.round(daydata.boat))
+                                 .style("text-anchor","middle")
+                                 .style("font-size","20pt");
+		         
+                   // end BOAT
+                  
+             // House
+
+                  // House
+
+                     var house = d3.select("#dashsvg").append("g")
+                        .attr("id","house")
+                        .attr("transform","translate(1200,300)");
+
+                      // control for house
+
+                        var gcfcontrol = d3.select("#house") 
+                          .append("foreignObject")
+                             .attr("y", -175)
+                             .attr("x", -325)
+                             .attr("width", 250)
+                             .attr("height",100) 
+                             .attr("id","housecontrol");
+
+           
+                             gcfcontrol.append("xhtml:body")
+                                 .append("g")
+                                    .attr("id","floorg");
+
+                                 var flooropts = ["St Dev", "Floor"]   
+                  
+                                    var floorform = d3.select("#floorg").append("form")
+                       
+                                    var floorspan = floorform.selectAll("span")
+                                      .data(flooropts)
+                                      .enter()
+                                         .append("span");
+
+                                       floorspan.append("input")
+                                          .attr({type: "radio",
+                                              name: "floor",
+                                              id: function(d){return d;},
+                                              value: function(d,i){return i;}
+                                             })
+                                          .property("checked", function(d,i){return (i===active_floor);});
+
+                                       floorspan.append("label")
+                                         .text(function(d){return d;}); 
+
+                                     d3.select("#floorg")
+                                        .on("change", function(){
+                                           var radios = document.getElementsByName('floor');
+                                           for (var i = 0, length = radios.length; i < length; i++) {
+                                             if (radios[i].checked) {
+                                             active_floor = +radios[i].value;
+                                             break;
+                                             }
+                                           }                               
+                                        rebuild()
+                                        });
+  
+
+                               // end radio button for floor
+
+                             // if floor is Floor ==> choose a floor
+
+                               if(flooropts[active_floor] == "Floor"){
+                                   d3.select("#floorg")
+                                     .append("g")
+                                        .attr("id","floorslider");
+
+                                   d3.select("#floorslider")
+                                     .append("div")
+                                       
+                                         .append("input")
+                                            .attr("class","slider")
+                                            .style("width", "150px")
+                                            .attr("type","range")
+                                            .attr("min",5)
+                                            .attr("max",95)
+                                            .attr("value", floor)
+                                            .on("input", function(){
+                                                floor = this.value ;
+                                             })
+                                            .on("change", function() {
+                                               floor = this.value; 
+                                               rebuild()
+                                             });
+
+                         d3.select("#floorslider")
+                            .append("output") 
+                               .attr("for","floorslider")
+                               .attr("onforminput","value = floorslider.valueAsNumber;");
+
+                         }
+               
+
+
+                          // end control for house
+
+              // title
+
+                     d3.select("#house")
+                        .append("text")
+                           .attr("y","-150")
+                           .text("House")
+                           .style("text-anchor","middle")
+                           .style("font-size", "20pt");
+
+               // floor label
+           
+                  if(flooropts[active_floor] == "St Dev"){
+                     d3.select("#house")
+                        .append("text")
+                           .attr("x","-200")
+                           .attr("y","-50")
+                           .text("- 3 SD: " + d3.round(daydata.housem - 3 * daydata.housesd, 3))
+                           .style("text-anchor","middle")
+                           .style("font-size", "12pt");
+                     }
+                  if(flooropts[active_floor] == "Floor"){
+                     d3.select("#house")
+                        .append("text")
+                           .attr("x","-200")
+                           .attr("y","-50")
+                           .text("Floor: " + floor/100)
+                           .style("text-anchor","middle")
+                           .style("font-size", "12pt");
+                     }
+
+
+
+               // upper label
+
+                     d3.select("#house")
+                        .append("text")
+                           .attr("x","200")
+                           .attr("y","-50")
+                           .text("+ 3 SD: " + d3.round(daydata.housem + 3 * daydata.housesd, 3))
+                           .style("text-anchor","middle")
+                           .style("font-size", "12pt");
+                           
+               // dashboard part
+                     
+                     d3.select("#house")
+                        .selectAll("path")
+                           .data(arc_bad2good2bad)
+                           .enter()
+                              .append("path")
+                                 .attr("d", dasharc)
+                                 .style("fill",function(d){return d.color;});     
+
+                       // angle scale
+ 
+                         if(flooropts[active_floor] == "St Dev"){
+                            angleScale = d3.scale.linear()
+                              .domain([daydata.housem - 3 * daydata.housesd, daydata.housem + 3 * daydata.housesd])
+                              .range([-1.125,1.125]);
+                         }
+                         if(flooropts[active_floor] == "Floor"){
+                           angleScale = d3.scale.linear()
+                              .domain([floor/100, daydata.housem + 3 * daydata.housesd])
+                              .range([-1.125,1.125]);
+                         } 
+
+
+                         var housearc = d3.svg.arc()
+                            .innerRadius(50)
+                            .outerRadius((outer-inner)/2 + inner)
+                            .startAngle(function(d){
+                                if(angleScale(d.house) > 1.5){
+                                   return 1.5; 
+                                  }
+                                if(angleScale(d.house) < -1.5){
+                                    return -1.5;
+                                  }
+                                else{
+                                   return angleScale(d.house);
+                                }
+                               })
+                            .endAngle(function(d){
+                                if(angleScale(d.house) > 1.5){
+                                   return 1.5; 
+                                  }
+                                if(angleScale(d.house) < -1.5){
+                                    return -1.5;
+                                  }
+                                else{
+                                   return angleScale(d.house);
+                                }
+                               });
+                             
+
+
+                         d3.select("#house")
+                             .selectAll("arrow")
+                                .data([daydata])
+                                   .enter()
+                                      .append("path")
+                                         .attr("d",housearc)
+                                         .style("stroke-width",4)
+                                         .style("stroke","black");
+
+                        d3.select("#house")
+                            .append("text")
+                                 .text(d3.round(daydata.house,3))
+                                 .style("text-anchor","middle")
+                                 .style("font-size","20pt");
+		   
+        
+
+
+
+
+                  }; // end dashboard
+
+        })
+
+        </script>
+    </body>
+</html>
